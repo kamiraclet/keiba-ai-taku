@@ -3,8 +3,11 @@ import pandas as pd
 import plotly.express as px
 import glob
 import io
+import re
 
-st.set_page_config(page_title="競馬AIタク", layout="wide")
+# ページの設定
+st.set_page_config(page_title="競馬AIタク - 公式予測サイト", page_icon="🏇", layout="wide")
+
 # --- デザインのカスタマイズ（右上のメニューやフッターを隠す） ---
 hide_st_style = """
             <style>
@@ -14,6 +17,7 @@ hide_st_style = """
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
+
 st.title("🏇 競馬AIタク 予測勝率")
 
 # 1. フォルダ内のすべてのCSVファイルを探す
@@ -25,42 +29,47 @@ else:
     df_list = []
     for f in files:
         try:
-            # バイナリモードで読み込み
             with open(f, 'rb') as b:
                 data = b.read()
-            # UTF-8で読み込みを試みる（ExcelでUTF-8保存した場合）
-            tmp = pd.read_csv(io.BytesIO(data), encoding='utf-8')
-            df_list.append(tmp)
-        except Exception:
-            try:
-                # 失敗した場合はShift-JIS(cp932)で試みる
-                tmp = pd.read_csv(io.BytesIO(data), encoding='cp932')
-                df_list.append(tmp)
-            except Exception as e:
-                st.error(f"ファイル {f} の読み込みに失敗しました: {e}")
+            # 日本語とUTF-8の両方に対応
+            for enc in ['cp932', 'utf-8', 'shift_jis']:
+                try:
+                    tmp = pd.read_csv(io.BytesIO(data), encoding=enc)
+                    df_list.append(tmp)
+                    break
+                except:
+                    continue
+        except Exception as e:
+            st.error(f"ファイル {f} の読み込みに失敗しました")
 
     if df_list:
-        # すべてのCSVデータを1つに合体
         df = pd.concat(df_list).drop_duplicates()
-        
-        # 列名の余計な空白を削除
         df.columns = df.columns.str.strip()
 
+        # --- データ加工 ---
+        # 開催列（例：中山1R）から「開催場所」と「レース番号」を分ける
+        # 正規表現を使って、後ろの「数字+R」をカットしたものを作成
+        df['開催場所'] = df['開催'].str.replace(r'\d+R$', '', regex=True)
+        # 「レース番号」だけを抽出（例：1R）
+        df['レース番号'] = df['開催'].str.extract(r'(\d+R)$')
+        # 表示用の「レース選択」用文字列を作成（例：1R 3歳未勝利）
+        df['表示用レース名'] = df['レース番号'] + " " + df['レース名']
+
         # --- UI部分 ---
-        # 1. 日付を選択（最新の日付を一番上に）
+        # 1. 日付を選択
         date_list = sorted(df['日付'].unique(), reverse=True)
         selected_date = st.selectbox("日付を選択", date_list)
 
-        # 2. 開催場所を選択
-        venue_list = df[df['日付'] == selected_date]['開催'].unique()
+        # 2. 開催場所を選択（レース番号を消した純粋な場所名だけを表示）
+        venue_list = sorted(df[df['日付'] == selected_date]['開催場所'].unique())
         selected_venue = st.selectbox("開催場所を選択", venue_list)
 
-        # 3. レースを選択
-        race_list = df[(df['日付'] == selected_date) & (df['開催'] == selected_venue)]['レース名'].unique()
+        # 3. レースを選択（レース番号 + レース名を表示）
+        race_list = df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique()
         selected_race = st.selectbox("レースを選択", race_list)
 
-        # --- データの表示 ---
-        target_df = df[(df['レース名'] == selected_race) & (df['開催'] == selected_venue)].sort_values("予想順位")
+        # --- データの抽出と表示 ---
+        target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
 
         if not target_df.empty:
             # グラフ表示
@@ -69,5 +78,9 @@ else:
                          labels={'勝率':'勝率 (%)'})
             st.plotly_chart(fig, use_container_width=True)
             
-            # 表表示
-            st.table(target_df[['予想順位', '馬番', '馬名', '勝率']])
+            # --- 表の表示（加工） ---
+            display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
+            # 勝率を少数第一位までにして、単位に%をつける
+            display_table['勝率'] = display_table['勝率'].map('{:.1f}%'.format)
+            
+            st.table(display_table.set_index('予想順位'))
