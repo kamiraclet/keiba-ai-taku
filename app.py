@@ -16,43 +16,49 @@ menu = st.sidebar.selectbox("メニュー", ["各レースの予測勝率", "重
 if menu == "各レースの予測勝率":
     st.header("📈 レース別 予測勝率")
     
-    # CSVファイルの読み込み
+    # CSVファイルのリストを取得
     csv_files = glob.glob("*.csv")
+    
     if not csv_files:
         st.warning("データファイル(CSV)が見つかりません。GitHubにCSVをアップロードしてください。")
     else:
         df_list = []
         for f in csv_files:
-            # --- ここから文字コード自動判別ロジック ---
-            with open(f, 'rb') as rawdata:
-                bindata = rawdata.read()
+            # ファイルをバイナリ（生のデータ）として一旦読み込む
+            with open(f, 'rb') as file:
+                content = file.read()
             
-            # 一般的なエンコーディングを順番に試す
-            for enc in ['utf-8', 'cp932', 'shift_jis', 'euc-jp']:
+            # 日本語Windows(cp932)か、標準(utf-8)か、順番に試して読み込む
+            success = False
+            for encoding in ['cp932', 'utf-8', 'shift_jis']:
                 try:
-                    df_tmp = pd.read_csv(io.BytesIO(bindata), encoding=enc)
+                    df_tmp = pd.read_csv(io.BytesIO(content), encoding=encoding)
                     df_list.append(df_tmp)
-                    break 
-                except:
+                    success = True
+                    break
+                except Exception:
                     continue
-            # --- ここまで ---
             
-        if not df_list:
-            st.error("CSVファイルの読み込みに失敗しました。ファイル形式を確認してください。")
-        else:
+            if not success:
+                st.error(f"ファイル {f} の読み込みに失敗しました。")
+
+        if df_list:
+            # 全てのCSVを合体
             df = pd.concat(df_list).drop_duplicates()
             
-            # 日付選択
+            # 日付選択（データから自動取得）
             dates = sorted(df['日付'].unique(), reverse=True)
             selected_date = st.selectbox("開催日を選択", dates)
             
+            # 開催場所選択
             venues = df[df['日付'] == selected_date]['開催'].unique()
             selected_venue = st.selectbox("開催場所を選択", venues)
             
+            # レース選択
             races = df[(df['日付'] == selected_date) & (df['開催'] == selected_venue)]['レース名'].unique()
             selected_race = st.selectbox("レースを選択", races)
             
-            # データの抽出
+            # データの抽出と表示
             display_df = df[(df['レース名'] == selected_race) & (df['開催'] == selected_venue)].sort_values("予想順位")
             
             # グラフ作成
