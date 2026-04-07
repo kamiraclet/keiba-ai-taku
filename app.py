@@ -5,6 +5,15 @@ import glob
 import io
 
 st.set_page_config(page_title="競馬AIタク", layout="wide")
+# --- デザインのカスタマイズ（右上のメニューやフッターを隠す） ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 st.title("🏇 競馬AIタク 予測勝率")
 
 # 1. フォルダ内のすべてのCSVファイルを探す
