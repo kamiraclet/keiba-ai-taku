@@ -23,7 +23,14 @@ if menu == "各レースの予測勝率":
     else:
         # 日付選択（CSVファイル名から取得、またはデータ内から取得）
         # 今回はシンプルにアップロードされている全CSVを統合
-        df_list = [pd.read_csv(f) for f in csv_files]
+        df_list = []
+        for f in csv_files:
+            try:
+                # まずは標準のUTF-8で試す
+                df_list.append(pd.read_csv(f))
+            except UnicodeDecodeError:
+                # ダメならShift-JISで試す（Excelで作ったCSVはこっちが多い）
+                df_list.append(pd.read_csv(f, encoding='cp932'))
         df = pd.concat(df_list).drop_duplicates()
         
         # 選択UI
