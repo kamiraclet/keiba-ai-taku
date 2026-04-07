@@ -31,7 +31,6 @@ else:
         try:
             with open(f, 'rb') as b:
                 data = b.read()
-            # 日本語とUTF-8の両方に対応
             for enc in ['cp932', 'utf-8', 'shift_jis']:
                 try:
                     tmp = pd.read_csv(io.BytesIO(data), encoding=enc)
@@ -47,24 +46,17 @@ else:
         df.columns = df.columns.str.strip()
 
         # --- データ加工 ---
-        # 開催列（例：中山1R）から「開催場所」と「レース番号」を分ける
-        # 正規表現を使って、後ろの「数字+R」をカットしたものを作成
         df['開催場所'] = df['開催'].str.replace(r'\d+R$', '', regex=True)
-        # 「レース番号」だけを抽出（例：1R）
         df['レース番号'] = df['開催'].str.extract(r'(\d+R)$')
-        # 表示用の「レース選択」用文字列を作成（例：1R 3歳未勝利）
         df['表示用レース名'] = df['レース番号'] + " " + df['レース名']
 
         # --- UI部分 ---
-        # 1. 日付を選択
         date_list = sorted(df['日付'].unique(), reverse=True)
         selected_date = st.selectbox("日付を選択", date_list)
 
-        # 2. 開催場所を選択（レース番号を消した純粋な場所名だけを表示）
         venue_list = sorted(df[df['日付'] == selected_date]['開催場所'].unique())
         selected_venue = st.selectbox("開催場所を選択", venue_list)
 
-        # 3. レースを選択（レース番号 + レース名を表示）
         race_list = df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique()
         selected_race = st.selectbox("レースを選択", race_list)
 
@@ -78,9 +70,13 @@ else:
                          labels={'勝率':'勝率 (%)'})
             st.plotly_chart(fig, use_container_width=True)
             
-            # --- 表の表示（加工） ---
+            # --- 表の表示（修正箇所） ---
             display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
-            # 勝率を少数第一位までにして、単位に%をつける
+            
+            # 1. 勝率を少数第一位までにして、単位に%をつける
             display_table['勝率'] = display_table['勝率'].map('{:.1f}%'.format)
             
-            st.table(display_table.set_index('予想順位'))
+            # 2. 馬番が空(NaN)の場合に備えて整数表示にする（データがある場合のみ）
+            display_table['馬番'] = display_table['馬番'].fillna('-')
+            
+            #
