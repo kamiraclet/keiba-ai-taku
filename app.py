@@ -64,19 +64,22 @@ else:
         target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
 
         if not target_df.empty:
-            # グラフ表示
+            # グラフ表示 (width='stretch' に修正)
             fig = px.bar(target_df, x='馬名', y='勝率', color='勝率', 
                          text_auto='.1f', color_continuous_scale='Reds',
                          labels={'勝率':'勝率 (%)'})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
-            # --- 表の表示（修正箇所） ---
+            # --- 表の表示 ---
             display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
             
-            # 1. 勝率を少数第一位までにして、単位に%をつける
+            # 少数第一位までにして%をつける
             display_table['勝率'] = display_table['勝率'].map('{:.1f}%'.format)
             
-            # 2. 馬番が空(NaN)の場合に備えて整数表示にする（データがある場合のみ）
+            # 馬番の空欄対策
             display_table['馬番'] = display_table['馬番'].fillna('-')
+            # 数値（1.0など）を整数（1）に見えるように変換
+            display_table['馬番'] = display_table['馬番'].apply(lambda x: str(int(x)) if isinstance(x, float) else str(x))
             
-            #
+            # 表を表示（インデックスを表示しない設定）
+            st.dataframe(display_table, hide_index=True, width='stretch')
