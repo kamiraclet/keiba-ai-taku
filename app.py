@@ -5,48 +5,107 @@ import glob
 import io
 import re
 
-# 1. ページの設定
-st.set_page_config(page_title="競馬AIタク - 公式予測サイト", page_icon="🏇", layout="wide")
+# 1. SEOを意識したページ設定
+st.set_page_config(
+    page_title="競馬AIタク | データサイエンスが導く予測勝率と期待値の最終結論", 
+    page_icon="🏇", 
+    layout="wide"
+)
 
-# デザインのカスタマイズ（右上のメニューやフッター、余計な余白を消す）
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            /* 上部の余白を詰める */
-            .block-container {padding-top: 2rem;}
-            /* タブの文字を大きくする */
-            button[data-baseweb="tab"] {font-size: 18px; font-weight: bold;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# --- 洗練されたデザインのためのカスタムCSS ---
+style = """
+<style>
+    /* 右上のメニュー・フッターを隠す */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 
-# --- サイトロゴとタイトル ---
-col_logo, col_title = st.columns([1, 8])
-with col_logo:
-    st.image("https://www.jp-p.jp/images/common/horse_icon.png", width=80) # 自作ロゴがあれば差し替え
-with col_title:
-    st.title("競馬AIタク - データ予測プラットフォーム")
+    /* 全体の中央寄せと最大幅の制限 */
+    .main .block-container {
+        max-width: 1000px;
+        padding-top: 2rem;
+        margin: auto;
+    }
 
-# --- 上部ナビゲーションメニュー（タブ） ---
+    /* タイトルセクションの中央寄せ */
+    .title-container {
+        text-align: center;
+        padding-bottom: 2rem;
+    }
+
+    /* タブ（メニューバー）のデザイン調整 */
+    .stTabs [data-baseweb="tab-list"] {
+        display: flex;
+        justify-content: center; /* メニューを中央寄せ */
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 5px 5px 0px 0px;
+        gap: 1px;
+        padding-left: 20px;
+        padding-right: 20px;
+        font-weight: bold;
+    }
+    /* アクティブなタブの色を競馬らしいグリーンに */
+    .stTabs [aria-selected="true"] {
+        background-color: #006400 !important;
+        color: white !important;
+    }
+
+    /* セクションの見出し */
+    h1, h2, h3 {
+        color: #1a3321;
+        text-align: center;
+    }
+</style>
+"""
+st.markdown(style, unsafe_allow_html=True)
+
+# --- サイトヘッダー（SEO意識のキャッチコピー） ---
+st.markdown("""
+<div class="title-container">
+    <h1 style='font-size: 2.5rem;'>🏇 競馬AIタク</h1>
+    <p style='font-size: 1.1rem; color: #666;'>〜 30年分のビッグデータが導く「勝つための期待値」を全レース無料公開 〜</p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- メニュー（タブ）の設定：指示通りの順番 ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 予測勝率", 
-    "🏆 重賞予想", 
-    "📚 会場データ考察", 
-    "📄 競馬コラム", 
-    "👤 プロフィール"
+    "👤 開発者紹介", 
+    "📊 予測勝率公開", 
+    "🏆 レース特集", 
+    "📚 会場データ", 
+    "📄 競馬コラム"
 ])
 
 # --- 各メニューの内容 ---
 
-# ① 予測勝率
+# ① 開発者紹介
 with tab1:
-    st.header("📈 レース別 予測勝率")
+    col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+    with col_p2:
+        st.markdown("<h2 style='text-align: center;'>AI予想家タク プロフィール</h2>", unsafe_allow_html=True)
+        st.image("https://www.jp-p.jp/images/common/horse_icon.png", width=150) # ここにご自身のロゴを
+        st.write("""
+        **【データサイエンス × 競馬への情熱】**
+        
+        競馬AIタクは、過去30年以上の膨大なレースデータをディープラーニング技術によって解析し、
+        「感情を一切排除した客観的な勝率」を算出する次世代の予想システムです。
+        
+        「競馬はギャンブルではなく投資である」という信念のもと、
+        知名度と権威性を備えたAI予想の第一人者を目指し、日々モデルのアップデートを続けています。
+        """)
+
+# ② 予測勝率公開
+with tab2:
+    st.markdown("<h2 style='text-align: center;'>📈 最新レース予測勝率</h2>", unsafe_allow_html=True)
     files = glob.glob("*.csv")
 
     if not files:
-        st.info("CSVファイルをGitHubにアップロードしてください。")
+        st.info("現在、最新データを解析中です。しばらくお待ちください。")
     else:
         df_list = []
         for f in files:
@@ -70,22 +129,22 @@ with tab1:
             df['レース番号'] = df['開催'].str.extract(r'(\d+R)$')
             df['表示用レース名'] = df['レース番号'] + " " + df['レース名']
 
-            # 横並びのセレクター
             c1, c2, c3 = st.columns(3)
             with c1:
                 date_list = sorted(df['日付'].unique(), reverse=True)
-                selected_date = st.selectbox("日付", date_list)
+                selected_date = st.selectbox("📅 開催日", date_list)
             with c2:
                 venue_list = sorted(df[df['日付'] == selected_date]['開催場所'].unique())
-                selected_venue = st.selectbox("開催場所", venue_list)
+                selected_venue = st.selectbox("📍 開催場所", venue_list)
             with c3:
                 race_list = df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique()
-                selected_race = st.selectbox("レース", race_list)
+                selected_race = st.selectbox("🏁 レース", race_list)
 
             target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
 
             if not target_df.empty:
-                fig = px.bar(target_df, x='馬名', y='勝率', color='勝率', text_auto='.1f', color_continuous_scale='Reds', labels={'勝率':'勝率 (%)'})
+                fig = px.bar(target_df, x='馬名', y='勝率', color='勝率', text_auto='.1f', color_continuous_scale='Greens', labels={'勝率':'期待勝率 (%)'})
+                fig.update_layout(title_x=0.5) # グラフのタイトルも中央寄せ
                 st.plotly_chart(fig, width='stretch')
                 
                 display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
@@ -94,35 +153,17 @@ with tab1:
                 
                 st.dataframe(display_table, hide_index=True, width='stretch')
 
-# ② 重賞予想
-with tab2:
-    st.header("🏆 重賞レース徹底分析")
-    st.subheader("今週の注目：大阪杯 (G1)")
-    st.write("ここに重賞の考察記事を書いていきます。")
-
-# ③ 会場データ考察
+# ③ レース特集（重賞予想など）
 with tab3:
-    st.header("📚 各開催場所のデータ考察")
-    course = st.radio("競馬場を選択", ["中山", "東京", "阪神", "京都"], horizontal=True)
-    st.write(f"### {course}競馬場の傾向分析")
-    st.write("コースの特徴や有利な脚質などのデータを記載します。")
+    st.markdown("<h2 style='text-align: center;'>🏆 今週の重賞特集</h2>", unsafe_allow_html=True)
+    st.write("準備中：今週末の重賞レースに関するAIの見解を公開します。")
 
-# ④ 競馬コラム
+# ④ 会場データ
 with tab4:
-    st.header("📄 競馬コラム")
-    st.write("AI予想の裏側や馬券術についての読み物です。")
+    st.markdown("<h2 style='text-align: center;'>📚 競馬場別・データ傾向分析</h2>", unsafe_allow_html=True)
+    st.write("準備中：各競馬場別のAI解析による特注データを公開予定です。")
 
-# ⑤ プロフィール
+# ⑤ 競馬コラム
 with tab5:
-    st.header("👤 プロフィール")
-    col_p1, col_p2 = st.columns([1, 3])
-    with col_p1:
-        st.image("https://www.jp-p.jp/images/common/horse_icon.png")
-    with col_p2:
-        st.write("""
-        **名前：競馬AIタク**
-        
-        30年分のレースデータと直近の馬場傾向を学習した独自AI。
-        感情を一切排し、**「期待値」のみ**を追求した予測勝率を算出します。
-        知名度と権威性を高め、皆様の競馬ライフに貢献することを目指しています。
-        """)
+    st.markdown("<h2 style='text-align: center;'>📄 競馬AIタク・コラム</h2>", unsafe_allow_html=True)
+    st.write("準備中：AI予測の仕組みや、期待値投資の重要性について綴ります。")
