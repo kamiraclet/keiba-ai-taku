@@ -8,34 +8,41 @@ import re
 # 1. ページの設定
 st.set_page_config(page_title="競馬AIタク - 公式予測サイト", page_icon="🏇", layout="wide")
 
-# デザインのカスタマイズ（右上のメニューやフッターを隠す）
+# デザインのカスタマイズ（右上のメニューやフッター、余計な余白を消す）
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
+            /* 上部の余白を詰める */
+            .block-container {padding-top: 2rem;}
+            /* タブの文字を大きくする */
+            button[data-baseweb="tab"] {font-size: 18px; font-weight: bold;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- サイドバー：プロフィール ＆ メニュー ---
-st.sidebar.title("🏇 競馬AIタク")
-st.sidebar.image("https://www.jp-p.jp/images/common/horse_icon.png") # 仮アイコン：後で自分のロゴに変更可能
-st.sidebar.markdown("""
-### プロフィール
-30年分のレースデータと直近の馬場傾向を学習した独自AI。
-感情を一切排し、**「期待値」のみ**を追求した予測勝率を算出します。
-""")
+# --- サイトロゴとタイトル ---
+col_logo, col_title = st.columns([1, 8])
+with col_logo:
+    st.image("https://www.jp-p.jp/images/common/horse_icon.png", width=80) # 自作ロゴがあれば差し替え
+with col_title:
+    st.title("競馬AIタク - データ予測プラットフォーム")
 
-menu = st.sidebar.radio(
-    "メニューを選択",
-    ["📊 レース別 予測勝率", "🏆 重賞予想コラム", "📚 レース会場データ考察", "📄 その他コラム"]
-)
+# --- 上部ナビゲーションメニュー（タブ） ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 予測勝率", 
+    "🏆 重賞予想", 
+    "📚 会場データ考察", 
+    "📄 競馬コラム", 
+    "👤 プロフィール"
+])
 
-# --- メインコンテンツ ---
+# --- 各メニューの内容 ---
 
-if menu == "📊 レース別 予測勝率":
-    st.title("📈 各レースの予測勝率")
+# ① 予測勝率
+with tab1:
+    st.header("📈 レース別 予測勝率")
     files = glob.glob("*.csv")
 
     if not files:
@@ -53,8 +60,8 @@ if menu == "📊 レース別 予測勝率":
                         break
                     except:
                         continue
-            except Exception as e:
-                st.error(f"ファイル {f} の読み込みに失敗しました")
+            except Exception:
+                continue
 
         if df_list:
             df = pd.concat(df_list).drop_duplicates()
@@ -63,17 +70,17 @@ if menu == "📊 レース別 予測勝率":
             df['レース番号'] = df['開催'].str.extract(r'(\d+R)$')
             df['表示用レース名'] = df['レース番号'] + " " + df['レース名']
 
-            # UI
-            col1, col2, col3 = st.columns(3)
-            with col1:
+            # 横並びのセレクター
+            c1, c2, c3 = st.columns(3)
+            with c1:
                 date_list = sorted(df['日付'].unique(), reverse=True)
-                selected_date = st.selectbox("日付を選択", date_list)
-            with col2:
+                selected_date = st.selectbox("日付", date_list)
+            with c2:
                 venue_list = sorted(df[df['日付'] == selected_date]['開催場所'].unique())
-                selected_venue = st.selectbox("開催場所を選択", venue_list)
-            with col3:
+                selected_venue = st.selectbox("開催場所", venue_list)
+            with c3:
                 race_list = df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique()
-                selected_race = st.selectbox("レースを選択", race_list)
+                selected_race = st.selectbox("レース", race_list)
 
             target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
 
@@ -87,27 +94,35 @@ if menu == "📊 レース別 予測勝率":
                 
                 st.dataframe(display_table, hide_index=True, width='stretch')
 
-elif menu == "🏆 重賞予想コラム":
-    st.title("🏆 重賞レース徹底分析")
-    st.markdown("""
-    ### 今週の注目：大阪杯 (G1)
-    AIタクが導き出した今年の大阪杯のポイントは以下の3点です。
-    1. **阪神芝2000mの適性**：内枠有利のデータが顕著。
-    2. **上がり3Fの重要性**：過去5年の勝ち馬はすべて上がり3位以内。
-    3. **AI推奨馬**：勝率25%を超えるアノ馬に注目。
-    ---
-    *ここに詳細な考察を書いていきます。*
-    """)
+# ② 重賞予想
+with tab2:
+    st.header("🏆 重賞レース徹底分析")
+    st.subheader("今週の注目：大阪杯 (G1)")
+    st.write("ここに重賞の考察記事を書いていきます。")
 
-elif menu == "📚 レース会場データ考察":
-    st.title("📚 各開催場所のデータ考察")
-    course = st.selectbox("競馬場を選択", ["中山競馬場", "東京競馬場", "阪神競馬場", "京都競馬場"])
-    
-    if course == "中山競馬場":
-        st.subheader("中山競馬場の特徴")
-        st.write("急坂があり、パワーとスタミナが要求されるタフなコースです。")
-        # グラフや詳細データをここに追加可能
+# ③ 会場データ考察
+with tab3:
+    st.header("📚 各開催場所のデータ考察")
+    course = st.radio("競馬場を選択", ["中山", "東京", "阪神", "京都"], horizontal=True)
+    st.write(f"### {course}競馬場の傾向分析")
+    st.write("コースの特徴や有利な脚質などのデータを記載します。")
 
-elif menu == "📄 その他コラム":
-    st.title("📄 競馬コラム")
-    st.write("競馬AIの仕組みや、期待値理論についての解説記事を掲載します。")
+# ④ 競馬コラム
+with tab4:
+    st.header("📄 競馬コラム")
+    st.write("AI予想の裏側や馬券術についての読み物です。")
+
+# ⑤ プロフィール
+with tab5:
+    st.header("👤 プロフィール")
+    col_p1, col_p2 = st.columns([1, 3])
+    with col_p1:
+        st.image("https://www.jp-p.jp/images/common/horse_icon.png")
+    with col_p2:
+        st.write("""
+        **名前：競馬AIタク**
+        
+        30年分のレースデータと直近の馬場傾向を学習した独自AI。
+        感情を一切排し、**「期待値」のみ**を追求した予測勝率を算出します。
+        知名度と権威性を高め、皆様の競馬ライフに貢献することを目指しています。
+        """)
