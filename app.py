@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- カスタムCSS（デザイン調整） ---
+# --- カスタムCSS ---
 style = """
 <style>
     #MainMenu {visibility: hidden;}
@@ -32,7 +32,6 @@ style = """
         margin-bottom: 2rem;
     }
 
-    /* タブメニューの中央寄せ */
     .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center;
@@ -43,7 +42,6 @@ style = """
         color: white !important;
     }
     
-    /* フッターのデザイン */
     .custom-footer {
         margin-top: 5rem;
         padding: 2rem;
@@ -67,7 +65,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- メインメニュー（タブ） ---
-# 「ポリシー」を削除し、コンテンツに特化させました
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "👤 開発者紹介", 
     "🤖 競馬AIについて",
@@ -111,26 +108,40 @@ with tab3:
                         break
                     except: continue
             except Exception: continue
+        
         if df_list:
             df = pd.concat(df_list).drop_duplicates()
             df.columns = df.columns.str.strip()
-            df['開催場所'] = df['開催'].str.replace(r'\d+R$', '', regex=True)
-            df['表示用レース名'] = df['開催'].str.extract(r'(\d+R)$').fillna('') + " " + df['レース名']
+            
+            # --- データ加工（エラー対策済み） ---
+            # 開催場所を抽出
+            df['開催場所'] = df['開催'].astype(str).str.replace(r'\d+R$', '', regex=True)
+            # レース番号を抽出（Seriesとして取得するために [0] を指定）
+            race_num = df['開催'].astype(str).str.extract(r'(\d+R)$')[0].fillna('')
+            # 表示用レース名を結合（すべて文字列に強制変換してから結合）
+            df['表示用レース名'] = race_num + " " + df['レース名'].astype(str)
 
+            # --- UI表示 ---
             c1, c2, c3 = st.columns(3)
-            with c1: selected_date = st.selectbox("📅 開催日", sorted(df['日付'].unique(), reverse=True))
-            with c2: selected_venue = st.selectbox("📍 開催場所", sorted(df[df['日付'] == selected_date]['開催場所'].unique()))
-            with c3: selected_race = st.selectbox("🏁 レース", df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique())
+            with c1: 
+                selected_date = st.selectbox("📅 開催日", sorted(df['日付'].unique(), reverse=True))
+            with c2: 
+                selected_venue = st.selectbox("📍 開催場所", sorted(df[df['日付'] == selected_date]['開催場所'].unique()))
+            with c3: 
+                selected_race = st.selectbox("🏁 レース", df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique())
 
             target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
+            
             if not target_df.empty:
                 fig = px.bar(target_df, x='馬名', y='勝率', color='勝率', text_auto='.1f', color_continuous_scale='Greens')
                 st.plotly_chart(fig, width='stretch')
+                
                 display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
                 display_table['勝率'] = display_table['勝率'].map('{:.1f}%'.format)
                 display_table['馬番'] = display_table['馬番'].fillna('-').apply(lambda x: str(int(x)) if isinstance(x, float) else str(x))
                 st.dataframe(display_table, hide_index=True, width='stretch')
 
+# --- 以下のタブは前回と同様 ---
 with tab4:
     st.markdown("<h2 style='text-align: center;'>🏆 重賞レース徹底分析</h2>", unsafe_allow_html=True)
     st.write("準備中：今週末の重賞レースに関するAIの見解を公開します。")
@@ -141,9 +152,9 @@ with tab5:
 
 with tab6:
     st.markdown("<h2 style='text-align: center;'>📄 競馬AIタク・コラム</h2>", unsafe_allow_html=True)
-    st.write("準備中：AI予想の仕組みや、期待値投資の重要性について綴ります。")
+    st.write("準備中：AI予測の仕組みや、期待値投資の重要性について綴ります。")
 
-# --- フッター（ここにプライバシーポリシーを配置） ---
+# --- フッター ---
 st.markdown("""
 <div class="custom-footer">
     <p>© 2026 競馬AIタク - Data Science Horse Racing Prediction</p>
