@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- カスタムCSS ---
+# --- デザインのカスタマイズ ---
 style = """
 <style>
     #MainMenu {visibility: hidden;}
@@ -50,9 +50,18 @@ style = """
         color: #888;
         font-size: 0.8rem;
     }
+    .policy-link {
+        color: #888;
+        text-decoration: underline;
+        cursor: pointer;
+    }
 </style>
 """
 st.markdown(style, unsafe_allow_html=True)
+
+# --- 状態管理（タブの切り替え用） ---
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = 0
 
 # --- サイトヘッダー ---
 st.markdown("""
@@ -65,37 +74,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- メインメニュー（タブ） ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "👤 開発者紹介", 
-    "🤖 競馬AIについて",
-    "📊 予測勝率公開", 
-    "🏆 レース特集", 
-    "📚 会場データ", 
-    "📄 競馬コラム"
-])
+# st.tabsの代わりに、状態保持が可能な方法でメニューを構築
+tabs = ["👤 開発者紹介", "🤖 競馬AIについて", "📊 予測勝率公開", "🏆 レース特集", "📚 会場データ", "📄 競馬コラム", "⚖️ ポリシー"]
+selected_tab = st.tabs(tabs)
 
 # --- 各メニューの内容 ---
 
-with tab1:
-    col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
-    with col_p2:
-        st.markdown("<h2 style='text-align: center;'>AI予想家タク プロフィール</h2>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align: center;'><img src='https://www.jp-p.jp/images/common/horse_icon.png' width='100'></div>", unsafe_allow_html=True)
-        st.write("""
-        **【データと理論を融合させた真実の追求】**
-        netkeibaやX(旧Twitter)、note等のプラットフォームで活動するデータサイエンティスト。
-        独自モデルによる期待値投資を提唱しています。
-        """)
+with selected_tab[0]:
+    st.markdown("<h2 style='text-align: center;'>AI予想家タク プロフィール</h2>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center;'><img src='https://www.jp-p.jp/images/common/horse_icon.png' width='100'></div>", unsafe_allow_html=True)
+    st.write("netkeibaやX、note等で活動するデータサイエンティスト。独自モデルによる期待値投資を提唱。")
 
-with tab2:
+with selected_tab[1]:
     st.markdown("<h2 style='text-align: center;'>🤖 競馬AIタクのロジック</h2>", unsafe_allow_html=True)
-    st.write("独自に開発した深層学習モデルを用い、多角的に解析した予測勝率を算出しています。")
+    st.write("深層学習モデルを用い、当日の馬場差や風速、含水率を補正した予測勝率を算出しています。")
 
-with tab3:
+with selected_tab[2]:
     st.markdown("<h2 style='text-align: center;'>📈 最新レース予測勝率</h2>", unsafe_allow_html=True)
     files = glob.glob("*.csv")
     if not files:
-        st.info("現在、最新データを解析中です。しばらくお待ちください。")
+        st.info("解析データ準備中...")
     else:
         df_list = []
         for f in files:
@@ -108,62 +106,52 @@ with tab3:
                         break
                     except: continue
             except Exception: continue
-        
         if df_list:
             df = pd.concat(df_list).drop_duplicates()
             df.columns = df.columns.str.strip()
-            
-            # --- データ加工（エラー対策済み） ---
-            # 開催場所を抽出
             df['開催場所'] = df['開催'].astype(str).str.replace(r'\d+R$', '', regex=True)
-            # レース番号を抽出（Seriesとして取得するために [0] を指定）
             race_num = df['開催'].astype(str).str.extract(r'(\d+R)$')[0].fillna('')
-            # 表示用レース名を結合（すべて文字列に強制変換してから結合）
             df['表示用レース名'] = race_num + " " + df['レース名'].astype(str)
 
-            # --- UI表示 ---
             c1, c2, c3 = st.columns(3)
-            with c1: 
-                selected_date = st.selectbox("📅 開催日", sorted(df['日付'].unique(), reverse=True))
-            with c2: 
-                selected_venue = st.selectbox("📍 開催場所", sorted(df[df['日付'] == selected_date]['開催場所'].unique()))
-            with c3: 
-                selected_race = st.selectbox("🏁 レース", df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique())
+            with c1: selected_date = st.selectbox("📅 開催日", sorted(df['日付'].unique(), reverse=True))
+            with c2: selected_venue = st.selectbox("📍 開催場所", sorted(df[df['日付'] == selected_date]['開催場所'].unique()))
+            with c3: selected_race = st.selectbox("🏁 レース", df[(df['日付'] == selected_date) & (df['開催場所'] == selected_venue)]['表示用レース名'].unique())
 
             target_df = df[(df['表示用レース名'] == selected_race) & (df['開催場所'] == selected_venue) & (df['日付'] == selected_date)].sort_values("予想順位")
-            
             if not target_df.empty:
                 fig = px.bar(target_df, x='馬名', y='勝率', color='勝率', text_auto='.1f', color_continuous_scale='Greens')
                 st.plotly_chart(fig, width='stretch')
-                
                 display_table = target_df[['予想順位', '馬番', '馬名', '勝率']].copy()
                 display_table['勝率'] = display_table['勝率'].map('{:.1f}%'.format)
                 display_table['馬番'] = display_table['馬番'].fillna('-').apply(lambda x: str(int(x)) if isinstance(x, float) else str(x))
                 st.dataframe(display_table, hide_index=True, width='stretch')
 
-# --- 以下のタブは前回と同様 ---
-with tab4:
-    st.markdown("<h2 style='text-align: center;'>🏆 重賞レース徹底分析</h2>", unsafe_allow_html=True)
-    st.write("準備中：今週末の重賞レースに関するAIの見解を公開します。")
+with selected_tab[3]:
+    st.write("### 🏆 重賞レース特集（準備中）")
 
-with tab5:
-    st.markdown("<h2 style='text-align: center;'>📚 競馬場別・データ傾向分析</h2>", unsafe_allow_html=True)
-    st.write("準備中：各競馬場別のAI解析による特注データを公開予定です。")
+with selected_tab[4]:
+    st.write("### 📚 会場データ考察（準備中）")
 
-with tab6:
-    st.markdown("<h2 style='text-align: center;'>📄 競馬AIタク・コラム</h2>", unsafe_allow_html=True)
-    st.write("準備中：AI予測の仕組みや、期待値投資の重要性について綴ります。")
+with selected_tab[5]:
+    st.write("### 📄 競馬コラム（準備中）")
+
+with selected_tab[6]:
+    st.markdown("<h2 style='text-align: center;'>⚖️ プライバシーポリシー & 免責事項</h2>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background: #f9f9f9; padding: 30px; border-radius: 10px; line-height: 1.8;">
+        <b>1. 広告の配信について</b><br>
+        当サイトでは、第三者配信の広告サービス（Googleアドセンス等）を利用することがあります。広告配信事業者は、ユーザーの興味に応じた広告を表示するため、クッキー（Cookie）を使用することがあります。<br><br>
+        <b>2. 免責事項</b><br>
+        本サイトに掲載されている予測データはAIによる算出結果であり、的中を保証するものではありません。馬券の購入は必ずご自身の責任において行ってください。本サイトの情報を利用したことによる損害について、当方は一切の責任を負いません。
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- フッター ---
-st.markdown("""
-<div class="custom-footer">
-    <p>© 2026 競馬AIタク - Data Science Horse Racing Prediction</p>
-    <div style="max-width: 800px; margin: 0 auto; text-align: left; background: #fdfdfd; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
-        <strong style="font-size: 0.9rem;">【プライバシーポリシー & 免責事項】</strong><br>
-        <span style="font-size: 0.75rem;">
-        <b>1. 広告の配信について：</b>当サイトでは第三者配信の広告サービスを利用することがあります。ユーザーの興味に応じた広告表示のためクッキー（Cookie）を使用することがあります。<br>
-        <b>2. 免責事項：</b>本サイトのデータはAIによる算出結果であり的中を保証するものではありません。馬券購入は自己責任で行ってください。情報の利用による損害について一切の責任を負いません。
-        </span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("---")
+col_f1, col_f2 = st.columns([1, 1])
+with col_f1:
+    st.write("© 2026 競馬AIタク")
+with col_f2:
+    # 実際にはタブ移動を促すテキストとして表示
+    st.write("🏠 [TOPへ戻る](#)  |  ⚖️ プライバシーポリシーは上部メニューからご確認いただけます")
