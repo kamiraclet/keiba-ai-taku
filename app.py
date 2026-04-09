@@ -21,21 +21,15 @@ style = """
 
     .main .block-container {
         max-width: 1000px;
-        padding-top: 1rem;
+        padding-top: 2rem; /* 画像を消した分、少しだけ上に余裕を持たせる */
         margin: auto;
     }
 
     .title-container {
         text-align: center;
-        padding-bottom: 1rem;
-    }
-
-    /* ヘッダー画像の設定 */
-    .header-img {
-        width: 100%;
-        border-radius: 15px;
+        padding-bottom: 2rem;
+        border-bottom: 2px solid #f0f2f6; /* 境界線を入れて引き締める */
         margin-bottom: 2rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -48,25 +42,25 @@ style = """
         color: white !important;
     }
     
-    /* プライバシーポリシー用 */
     .policy-box {
         font-size: 0.8rem;
         color: #666;
         background: #f9f9f9;
         padding: 20px;
         border-radius: 10px;
+        line-height: 1.6;
     }
 </style>
 """
 st.markdown(style, unsafe_allow_html=True)
 
-# --- ヘッダー画像とタイトル ---
-# ※画像URLは後述の「画像生成」で作成したものをここに貼る想定です
+# --- サイトヘッダー（画像なし・テキストのみ） ---
 st.markdown("""
 <div class="title-container">
-    <img src="https://images.unsplash.com/photo-1599202860130-f600f4948364?q=80&w=1000&auto=format&fit=crop" class="header-img" alt="競馬AIイメージ">
-    <h1 style='font-size: 2.5rem;'>🏇 競馬AIタク</h1>
-    <p style='font-size: 1.1rem; color: #666;'>〜 30年分のビッグデータが導く「勝つための期待値」を全レース無料公開 〜</p>
+    <h1 style='font-size: 3rem; color: #1a3321; margin-bottom: 0;'>🏇 競馬AIタク</h1>
+    <p style='font-size: 1.2rem; color: #444; font-weight: bold; margin-top: 10px;'>
+        〜 30年分のビッグデータが導く「勝つための期待値」を全レース無料公開 〜
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -87,6 +81,8 @@ with tab1:
     col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
     with col_p2:
         st.markdown("<h2 style='text-align: center;'>AI予想家タク プロフィール</h2>", unsafe_allow_html=True)
+        # 画像がないと寂しい場合は、小さなアイコンだけ残すと権威性が出ます
+        st.markdown("<div style='text-align: center;'><img src='https://www.jp-p.jp/images/common/horse_icon.png' width='100'></div>", unsafe_allow_html=True)
         st.write("""
         **【データと理論を融合させた真実の追求】**
         
@@ -108,11 +104,8 @@ with tab2:
     st.write("""
     **「競馬AIタク」は、単なる過去データの集計機ではありません。**
     
-    独自に開発した深層学習（Deep Learning）モデルを用い、以下の要素を多角的に解析しています。
-    
-    1. **タイム指数の再定義**: 走破タイムを当日の馬場差、風速、含水率で自動補正。
-    2. **適性マッチング**: 各馬の歩法データと会場のカーブ半径・直線距離の相性を数値化。
-    3. **オッズ乖離の検知**: 実際の勝率と市場オッズを比較し、「過小評価されている馬」を期待値として抽出。
+    独自に開発した深層学習（Deep Learning）モデルを用い、多角的に解析。
+    当日の馬場差、風速、含水率によるタイム補正に加え、各馬の走法と会場の相性を数値化しています。
     
     このAIが導き出す「予測勝率」は、皆様が馬券を組み立てる際の最強の武器となります。
     """)
@@ -126,15 +119,13 @@ with tab3:
         df_list = []
         for f in files:
             try:
-                with open(f, 'rb') as b:
-                    data = b.read()
+                with open(f, 'rb') as b: data = b.read()
                 for enc in ['cp932', 'utf-8', 'shift_jis']:
                     try:
                         tmp = pd.read_csv(io.BytesIO(data), encoding=enc)
                         df_list.append(tmp)
                         break
-                    except:
-                        continue
+                    except: continue
             except Exception: continue
         if df_list:
             df = pd.concat(df_list).drop_duplicates()
@@ -157,7 +148,17 @@ with tab3:
                 display_table['馬番'] = display_table['馬番'].fillna('-').apply(lambda x: str(int(x)) if isinstance(x, float) else str(x))
                 st.dataframe(display_table, hide_index=True, width='stretch')
 
-# (タブ4-6は前回の内容を維持)
+with tab4:
+    st.markdown("<h2 style='text-align: center;'>🏆 重賞レース徹底分析</h2>", unsafe_allow_html=True)
+    st.write("準備中：今週末の重賞レースに関するAIの見解を公開します。")
+
+with tab5:
+    st.markdown("<h2 style='text-align: center;'>📚 競馬場別・データ傾向分析</h2>", unsafe_allow_html=True)
+    st.write("準備中：各競馬場別のAI解析による特注データを公開予定です。")
+
+with tab6:
+    st.markdown("<h2 style='text-align: center;'>📄 競馬AIタク・コラム</h2>", unsafe_allow_html=True)
+    st.write("準備中：AI予測の仕組みや、期待値投資の重要性について綴ります。")
 
 with tab7:
     st.markdown("### プライバシーポリシー")
@@ -166,7 +167,7 @@ with tab7:
     当サイト（以下、本サイト）は、ユーザーの個人情報保護を重視しています。
     <br><br>
     <b>1. 広告の配信について</b><br>
-    本サイトでは、第三者配信の広告サービス（Googleアドセンス等）を利用することがあります。これらの広告配信事業者は、ユーザーの興味に応じた商品やサービスの広告を表示するため、クッキー（Cookie）を使用することがあります。
+    本サイトでは、第三者配信の広告サービス（Googleアドセンス等）を利用することがあります。クッキー（Cookie）を使用することがあります。
     <br><br>
     <b>2. 免責事項</b><br>
     本サイトに掲載されている予測データはAIによる算出結果であり、的中を保証するものではありません。馬券の購入は必ずご自身の責任において行ってください。本サイトの情報を利用したことによる損害について、当方は一切の責任を負いません。
